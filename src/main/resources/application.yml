@@ -1,0 +1,13 @@
+server:
+  port: ${PORT:9999}
+
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${URL:jdbc:postgresql://localhost:5432/rinha}
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+
