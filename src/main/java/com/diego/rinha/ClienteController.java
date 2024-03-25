@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,7 +29,7 @@ public class ClienteController {
     @Transactional
     public ResponseEntity<TransacaoResponse> novaTransacao(@PathVariable long id, @Valid @RequestBody TransacaoRequest request) {
 
-        var cliente = clienteRepository.findById(id)
+        var cliente = clienteRepository.findByIdLock(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         var transacao = request.toModel(cliente);
