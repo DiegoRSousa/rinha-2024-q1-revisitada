@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 
@@ -17,39 +20,45 @@ import jakarta.validation.Valid;
 @RestController
 public class ClienteController {
 
-    private ClienteRepository clienteRepository;
-    private TransacaoRepository transacaoRepository;
-
-    public ClienteController(ClienteRepository clienteRepository, TransacaoRepository transacaoRepository) {
-        this.clienteRepository = clienteRepository;
-        this.transacaoRepository = transacaoRepository;
-    }
+    @PersistenceContext
+    private EntityManager manager;
 
     @PostMapping("{id}/transacoes")
     @Transactional
-    public ResponseEntity<TransacaoResponse> novaTransacao(@PathVariable long id, @Valid @RequestBody TransacaoRequest request) {
+    public ResponseEntity<TransacaoResponse> novaTransacao(@PathVariable long id,
+            @Valid @RequestBody TransacaoRequest request) {
 
-        var cliente = clienteRepository.findByIdLock(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var cliente = manager.find(Cliente.class, id, LockModeType.PESSIMISTIC_WRITE);
+
+        if (null == cliente) {
+            return ResponseEntity.notFound().build();
+        }
 
         var transacao = request.toModel(cliente);
 
         if (!transacao.executar()) {
-            throw new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE);            
+            throw new ResponseStatusException(HttpStatus.NOT_ACCEPTABLE);
         }
 
-        transacaoRepository.save(transacao);
-        clienteRepository.save(cliente);
-        
+        manager.persist(transacao);
+        manager.persist(cliente);
+
         return ResponseEntity.ok(new TransacaoResponse(cliente));
     }
 
     @GetMapping("/{id}/extrato")
+    @Transactional
     public ResponseEntity<Extrato> getExtrato(@PathVariable long id) {
-        var cliente = clienteRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
-        var ultimas10Transacoes = transacaoRepository.findByClienteIdOrderByRealizadaEmDesc(id);
+        var cliente = manager.find(Cliente.class, id, LockModeType.PESSIMISTIC_WRITE);
+
+        var ultimas10Transacoes = manager.createNativeQuery("""
+                    select * from Transacao t
+                    where t.cliente_id = :clienteId
+                    order by realizada_em desc limit 10
+                """, Transacao.class)
+                .setParameter("clienteId", id)
+                .getResultList();
 
         return ResponseEntity.ok(new Extrato(cliente, ultimas10Transacoes));
 

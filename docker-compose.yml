@@ -1,0 +1,13 @@
+version: '3'
+services:
+  db:
+    image: postgres:12-alpine
+    container_name: postgres-rinha
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rinha
+    ports:
+      - 5432:5432
+    restart: unless-stopped
